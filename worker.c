@@ -11,7 +11,6 @@
 #include <sys/msg.h>
 #include <signal.h>
 
-// Message queue struct
 typedef struct msgbuffer {
     long mtype;
     int intData;
@@ -19,7 +18,6 @@ typedef struct msgbuffer {
 
 #define PERMS 0666
 
-//Clock Struct
 typedef struct Clock {
         int seconds;
         int nanoseconds;
@@ -34,7 +32,7 @@ int main(int argc, char** argv) {
                 perror("Worker: Shared memory failiure");
                 exit(1);
         }
-        // Worker: checks clock periodically to terminate or continue
+        
         Clock *clock_ptr = (struct Clock*) shmat(shm_id, NULL, 0);
         if (clock_ptr == (void *) -1) {
                 perror("Worker: Shared memoryfailiure");
@@ -47,22 +45,16 @@ int main(int argc, char** argv) {
         int msqid = 0;
         key_t msgkey;
 
-        // Get a key for our message queue
+       
         if ((msgkey = ftok("msg_key.txt", 1)) == -1) {
 
         exit(1);
     }
-        // Access existing queue
+       
         if ((msqid = msgget(msgkey, PERMS)) == -1) {
 
                 exit(1);
         }
-
-
-        // printf("Child %d has access to the queue\n",getpid());
-
-
-        //      printf("Seconds: %s, Nanoseconds: %s\n", argv[1], argv[2]); // Making sure exec works
 
         int t_seconds = atoi(argv[1]) + clock_ptr-> seconds;
         int t_nanoseconds = atoi(argv[2]) + clock_ptr-> nanoseconds;
@@ -76,25 +68,20 @@ int main(int argc, char** argv) {
         while (true) {
                 if (clock_ptr->seconds > t_seconds || (clock_ptr->seconds== t_seconds && clock_ptr->nanoseconds >= t_nanoseconds)) {
                         buf.intData = 0;
-                        // printf("Terminating....\n");
                 } else {
                         buf.intData = 1;
-                        //      printf("Continuing...\n");
                 }
 
-                //printf("Sending message with %d to parent.\n", buf.intData); // debug
 
                 buf.mtype = getppid();
                 if (msgsnd(msqid, &buf, sizeof(msgbuffer) - sizeof(long), 0) == -1) {
 
                         exit(1);
                 }
-                //printf("Successfully sent message to parent %ld.\n:", buf.mtype); // debugging statement
                 if (buf.intData == 0) {
                         printf("Sending 0 to terminate child");
-                break; // Exit the loop if the process is terminating
+                break;
                 }
-
 
                 if (clock_ptr->seconds - start_seconds > elapsed_seconds) {
                 elapsed_seconds = clock_ptr->seconds - start_seconds;
@@ -103,15 +90,10 @@ int main(int argc, char** argv) {
         }
         }
 
-        printf("WORKER: detaching from shared memory\n");
-        //Detatching from shared memory space
+        printf("WORKER: detaching shared memory\n");
         if (shmdt(clock_ptr) == -1) {
                 fprintf(stderr, "Detatching process failed");
                 exit(1);
         }
-
-
-
         return 0;
-
 }
